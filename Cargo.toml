@@ -1,0 +1,15 @@
+[package]
+name = "hd-dumper"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Extract the runtime resource tables hd-server needs from a Hay Day APK"
+
+[dependencies]
+anyhow = "1.0.95"
+clap = { version = "4.5.23", features = ["derive"] }
+zip = { version = "9.8.2", default-features = false, features = ["deflate"] }
+sha2 = "0.11.1"
+serde_json = { version = "1", features = ["preserve_order"] }
+toml = "0.8"
+iced-x86 = "1.22"

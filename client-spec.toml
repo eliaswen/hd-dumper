@@ -1,0 +1,230 @@
+# hd-dumper spec: the client facts an APK's data tables do not contain.
+#
+# Everything else hd-dumper writes is a rule over the APK's own CSVs. The facts
+# here are properties of the client's code, measured from a live client (runtime GDB read):
+#
+#   * `[[walk]]` is the order generator's candidate table walk, in the client's
+#     own order, each table with its data-type number (ID = type*100000 + row).
+#     Membership is otherwise almost derivable: every table whose CSV carries
+#     OrderValue/OrderPrice/OrderExp/UnlockLevel is walked, plus nine walked
+#     tables that do not (animal_feed, tools, boosters, vouchers, money,
+#     mine_goods, collection_tools, limited_collection_tools, puzzle_pieces).
+#   * `unlock_default` is the UnlockLevel the client uses for a walked row whose
+#     CSV cell is empty or absent; `[[unlock_row]]` are the exceptions.
+#
+# Nothing else about a row is an input: the rows, their order inside a table and
+# the OrderValue/OrderPrice/OrderExp values all come from the CSV. money.csv's
+# data-type number is derived from the APK itself, so `money_type` is only
+# needed if that derivation cannot decide (a run reports what it found).
+
+unlock_default = 1
+
+# The data types the client allocates avatar bitsets for, in the client's order.
+layout_types = [3, 4, 6, 13, 15, 16, 17, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 36, 38, 48, 51, 60, 61, 64, 65, 66, 68, 69, 75, 77, 78, 80, 82, 84, 101, 105, 109, 115, 117, 118, 119, 120, 121, 129, 133, 134, 145, 148, 149, 150, 152, 153, 166, 167, 168, 169, 170, 176, 177, 184, 185, 187, 202]
+
+[[walk]]
+table = "animal_feed"
+type = 16
+
+[[walk]]
+table = "animal_goods"
+type = 15
+
+[[walk]]
+table = "money"
+type = 19
+
+[[walk]]
+table = "fields"
+type = 4
+
+[[walk]]
+table = "tools"
+type = 22
+
+[[walk]]
+table = "boosters"
+type = 17
+
+[[walk]]
+table = "vouchers"
+type = 77
+
+[[walk]]
+table = "dairy_goods"
+type = 23
+
+[[walk]]
+table = "bakery_goods"
+type = 24
+
+[[walk]]
+table = "cake_oven_goods"
+type = 25
+
+[[walk]]
+table = "pie_oven_goods"
+type = 26
+
+[[walk]]
+table = "sugar_mill_goods"
+type = 27
+
+[[walk]]
+table = "loom_goods"
+type = 28
+
+[[walk]]
+table = "popcorn_pot_goods"
+type = 29
+
+[[walk]]
+table = "barbecue_grill_goods"
+type = 30
+
+[[walk]]
+table = "collection_tools"
+type = 38
+
+[[walk]]
+table = "juice_press_goods"
+type = 60
+
+[[walk]]
+table = "fruits"
+type = 61
+
+[[walk]]
+table = "mine_goods"
+type = 64
+
+[[walk]]
+table = "smelter_goods"
+type = 65
+
+[[walk]]
+table = "jam_maker_goods"
+type = 66
+
+[[walk]]
+table = "ice_cream_maker_goods"
+type = 69
+
+[[walk]]
+table = "jeweler_goods"
+type = 75
+
+[[walk]]
+table = "cafe_goods"
+type = 82
+
+[[walk]]
+table = "candy_machine_goods"
+type = 84
+
+[[walk]]
+table = "fishing_goods"
+type = 101
+
+[[walk]]
+table = "soup_kitchen_goods"
+type = 109
+
+[[walk]]
+table = "sushi_bar_goods"
+type = 117
+
+[[walk]]
+table = "salad_bar_goods"
+type = 118
+
+[[walk]]
+table = "sauce_mixer_goods"
+type = 119
+
+[[walk]]
+table = "sandwich_bar_goods"
+type = 121
+
+[[walk]]
+table = "smoothie_mixer_goods"
+type = 129
+
+[[walk]]
+table = "sewing_machine_goods"
+type = 145
+
+[[walk]]
+table = "gatherer_nest_goods"
+type = 150
+
+[[walk]]
+table = "honey_extractor_goods"
+type = 152
+
+[[walk]]
+table = "candle_maker_goods"
+type = 153
+
+[[walk]]
+table = "hat_maker_goods"
+type = 166
+
+[[walk]]
+table = "hotdog_stand_goods"
+type = 167
+
+[[walk]]
+table = "pasta_maker_goods"
+type = 168
+
+[[walk]]
+table = "pasta_kitchen_goods"
+type = 169
+
+[[walk]]
+table = "taco_kitchen_goods"
+type = 176
+
+[[walk]]
+table = "tea_stand_goods"
+type = 177
+
+[[walk]]
+table = "limited_collection_tools"
+type = 184
+
+[[walk]]
+table = "puzzle_pieces"
+type = 185
+
+[[walk]]
+table = "flowershop_goods"
+type = 202
+
+
+[[unlock_row]]
+table = "animal_feed"
+name = "Cow Food"
+level = 6
+
+[[unlock_row]]
+table = "animal_feed"
+name = "Pig Food"
+level = 10
+
+[[unlock_row]]
+table = "animal_feed"
+name = "Sheep Food"
+level = 16
+
+[[unlock_row]]
+table = "animal_feed"
+name = "Goat Food"
+level = 32
+
+[[unlock_row]]
+table = "animal_feed"
+name = "Herbivore Food"
+level = 1000
+
