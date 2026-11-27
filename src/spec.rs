@@ -29,6 +29,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
+/// The spec that ships with the tool, compiled in so the tool needs no files
+/// beside it (an Android app, a lone `.exe`).
+const BUNDLED: &str = include_str!("../client-spec.toml");
+/// How the compiled-in spec is named in reports and `sources.json`.
+pub const BUNDLED_LABEL: &str = "(built-in) client-spec.toml";
+
 pub struct Spec {
     pub path: PathBuf,
     /// `money.csv`'s data-type number, if the caller pinned it.
@@ -44,10 +50,21 @@ pub struct Spec {
 }
 
 impl Spec {
+    /// Read a spec file.
     pub fn load(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path)
             .with_context(|| format!("reading spec {}", path.display()))?;
-        let value: toml::Value = toml::from_str(&text)
+        Self::parse(&text, path)
+    }
+
+    /// The `client-spec.toml` compiled into this tool.
+    pub fn bundled() -> Result<Self> {
+        Self::parse(BUNDLED, Path::new(BUNDLED_LABEL))
+    }
+
+    /// Parse spec `text`; `path` names it in messages and in `sources.json`.
+    pub fn parse(text: &str, path: &Path) -> Result<Self> {
+        let value: toml::Value = toml::from_str(text)
             .with_context(|| format!("parsing spec {}", path.display()))?;
 
         let money_type = integer(&value, "money_type", path)?.map(|value| {

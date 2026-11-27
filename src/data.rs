@@ -9,7 +9,7 @@
 //! and are handled as documents instead.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::IsTerminal;
+use crate::progress::Progress;
 
 use anyhow::{Context, Result, ensure};
 
@@ -83,7 +83,7 @@ impl Inputs {
         self.csvs.get(stem)
     }
 
-    pub fn read(apk: &mut Archive) -> Result<Self> {
+    pub fn read(apk: &mut Archive, progress: &mut dyn Progress) -> Result<Self> {
         let entries = apk.under(DATA_PREFIX);
         ensure!(
             !entries.is_empty(),
@@ -95,11 +95,8 @@ impl Inputs {
         let mut documents = BTreeMap::new();
         let mut hashes = BTreeMap::new();
         let total = entries.len();
-        let live = std::io::stderr().is_terminal();
         for (index, entry) in entries.iter().enumerate() {
-            if live && (index % 16 == 0 || index + 1 == total) {
-                eprint!("\r\x1b[2KReading assets/data [{}/{}] {entry}", index + 1, total);
-            }
+            progress.entry(index + 1, total, entry);
             let bytes = apk.read(entry)?;
             if let Some(stem) = entry
                 .strip_prefix(DATA_PREFIX)
@@ -128,11 +125,7 @@ impl Inputs {
             }
             hashes.insert(entry.clone(), sha256_hex(&bytes));
         }
-        if live {
-            eprintln!();
-        } else {
-            eprintln!("Read {total} assets/data entries");
-        }
+        progress.message(&format!("Read {total} assets/data entries"));
         ensure!(
             csvs.len() >= 100,
             "only {} data CSVs in this APK; refusing to guess at this build",
@@ -287,6 +280,7 @@ pub fn parse_records(bytes: &[u8]) -> Result<Vec<Record>> {
     Ok(records)
 }
 
+#[cfg(test)]
 pub fn parse_line(line: &str) -> Record {
     parse_records(line.as_bytes())
         .ok()

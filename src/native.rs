@@ -481,6 +481,21 @@ pub const SHIPPED: &[Shipped] = &[
     },
 ];
 
+/// The shipped files compiled into this tool, in [`SHIPPED`] order.
+const BUNDLED_SHIPPED: [&[u8]; 2] = [
+    include_bytes!("../shipped/command-schema.json"),
+    include_bytes!("../shipped/command-evidence.json"),
+];
+
+/// The shipped files compiled into this tool, with their hashes.
+pub fn shipped_bundled() -> Result<Vec<(&'static Shipped, Vec<u8>, String)>> {
+    SHIPPED
+        .iter()
+        .zip(BUNDLED_SHIPPED)
+        .map(|(entry, bytes)| checked(entry, bytes.to_vec(), Path::new(entry.name)))
+        .collect()
+}
+
 /// Read the shipped files out of `directory`, with their hashes.
 pub fn shipped(directory: &Path) -> Result<Vec<(&'static Shipped, Vec<u8>, String)>> {
     let mut files = Vec::new();
@@ -493,19 +508,28 @@ pub fn shipped(directory: &Path) -> Result<Vec<(&'static Shipped, Vec<u8>, Strin
                 path.display()
             )
         })?;
-        // The server indexes both by command type; a broken file would surface
-        // only as a panic at login.
-        let value: serde_json::Value = serde_json::from_slice(&bytes)
-            .with_context(|| format!("parsing shipped {}", path.display()))?;
-        ensure!(
-            value.as_object().is_some_and(|object| !object.is_empty()),
-            "shipped {} is not a non-empty JSON object",
-            path.display()
-        );
-        let hash = sha256_hex(&bytes);
-        files.push((entry, bytes, hash));
+        files.push(checked(entry, bytes, &path)?);
     }
     Ok(files)
+}
+
+/// Check one shipped file and hash it.
+fn checked(
+    entry: &'static Shipped,
+    bytes: Vec<u8>,
+    path: &Path,
+) -> Result<(&'static Shipped, Vec<u8>, String)> {
+    // The server indexes both by command type; a broken file would surface
+    // only as a panic at login.
+    let value: serde_json::Value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parsing shipped {}", path.display()))?;
+    ensure!(
+        value.as_object().is_some_and(|object| !object.is_empty()),
+        "shipped {} is not a non-empty JSON object",
+        path.display()
+    );
+    let hash = sha256_hex(&bytes);
+    Ok((entry, bytes, hash))
 }
 
 fn u16_at(data: &[u8], offset: usize) -> Result<u16> {

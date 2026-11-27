@@ -14,7 +14,7 @@ content. See the [legal notice](LEGAL.md).
 ## Install
 
 Each [release](https://github.com/eliaswen/hd-dumper/releases) has archives for
-Linux, macOS and Windows. On Linux you can install from the signed apt or dnf
+Linux, macOS, Windows and Android (arm64 and x86_64, for Termux or `adb shell`). On Linux you can install from the signed apt or dnf
 repository instead; [eliaswen.github.io/hd-dumper](https://eliaswen.github.io/hd-dumper/)
 has the setup commands.
 
@@ -23,6 +23,28 @@ has the setup commands.
 ```sh
 cargo build --release
 ```
+
+For Android, build with [cargo-ndk](https://github.com/bbqsrc/cargo-ndk):
+
+```sh
+cargo ndk -t arm64-v8a -P 24 build --release
+```
+
+## Library
+
+The crate is also a library, so an app can run the dump on the device:
+
+```rust
+let summary = hd_dumper::dump(
+    &hd_dumper::Options::new("hayday.apk", "resources"),
+    &mut hd_dumper::progress::Silent,
+)?;
+for file in &summary.files {
+    println!("{} ({} bytes)", file.path, file.bytes);
+}
+```
+
+Implement `hd_dumper::progress::Progress` to show progress in your own UI.
 
 ## Usage
 
@@ -35,13 +57,17 @@ hd-dumper --apk hayday.apk --out resources
 | `--apk` | Input Hay Day APK (1.43.150 build 1598, x86 or arm64-v8a). |
 | `-o, --out` | Output directory, the server's `resources_dir` (default `resources`). |
 | `--spec` | Client facts the APK's data tables do not contain (default: the bundled `client-spec.toml`; see below). |
+| `--no-spec` | Use no spec: skip the two outputs that need it. |
 | `--shipped` | Directory holding the two protocol tables that ship with the tool (default: the bundled `shipped/`). |
 | `--type-map` | Data-type registry as JSON, for an APK with no x86 or arm64-v8a `libg.so` to scan. |
 | `--require-complete` | Exit non-zero when anything could not be produced. |
 
-The bundled files are looked up in the working directory, then next to the
-executable (release archives), then in `../share/hd-dumper` beside it (system
-packages, which install them to `/usr/share/hd-dumper`).
+The bundled files are compiled into the program, so it runs with nothing
+beside it (a lone `.exe`, an Android app). An installed copy still takes
+precedence, so it can be edited: the working directory is searched first, then
+next to the executable (release archives), then `../share/hd-dumper` beside it
+(system packages, which install them to `/usr/share/hd-dumper`). The built-in
+spec is named `(built-in) client-spec.toml` in the report and `sources.json`.
 
 Then run the server against it:
 
@@ -110,8 +136,9 @@ produced from another (`--type-map`).
 ### What the spec holds
 
 These facts are properties of the client's code, not of its data files, so they
-come from `client-spec.toml` (an input, never a constant in this program; point
-`--spec` elsewhere, or omit the file, to change or skip them):
+come from `client-spec.toml`, a data file rather than code (a copy is compiled
+in as the default; point `--spec` elsewhere to change them, or pass `--no-spec`
+to skip them):
 
 | Spec key | Meaning | Provenance |
 | --- | --- | --- |
@@ -150,8 +177,12 @@ against your own APK — it checks the generated tree against the server's contr
 the level ladder, and the report for anything skipped):
 
 ```sh
-HD_APK=/path/to/hayday.apk cargo test -- --ignored
+HD_APK=/path/to/hayday.apk cargo test -- --include-ignored
 ```
+
+With `HD_APK` set, `tests/dump.rs` also runs the library end to end and checks
+that the built-in spec and tables produce the same tree as the files in this
+repository.
 
 The arm64 scan can also be checked against a bare library pulled from a device:
 

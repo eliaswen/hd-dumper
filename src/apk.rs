@@ -6,14 +6,13 @@
 
 use std::fs::File;
 use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 
 pub struct Archive {
-    path: PathBuf,
     zip: ZipArchive<BufReader<File>>,
     names: Vec<String>,
     sha256: String,
@@ -33,15 +32,10 @@ impl Archive {
             names.push(zip.by_index(index)?.name()?.into_owned());
         }
         Ok(Self {
-            path: path.to_path_buf(),
             zip,
             names,
             sha256,
         })
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
     }
 
     pub fn sha256(&self) -> &str {
