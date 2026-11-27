@@ -17,7 +17,7 @@ mod dump;
 mod native;
 mod spec;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::Parser;
@@ -38,13 +38,14 @@ struct Args {
 
     /// Client facts the APK's data tables do not contain: the order generator's
     /// table walk, the avatar's bitset types, and UnlockLevel cells the CSVs
-    /// leave empty.
-    #[arg(long, default_value = "client-spec.toml")]
-    spec: PathBuf,
+    /// leave empty. Default: the `client-spec.toml` that ships with the tool.
+    #[arg(long)]
+    spec: Option<PathBuf>,
 
     /// The two command tables that ship with this tool, as a directory.
-    #[arg(long, default_value = "shipped")]
-    shipped: PathBuf,
+    /// Default: the bundled `shipped` directory.
+    #[arg(long)]
+    shipped: Option<PathBuf>,
 
     /// Data-type registry as JSON (`{"16": "animal_feed", ...}`), for APKs with
     /// no x86 or arm64-v8a `libg.so` to scan. The numbers are ABI-independent.
@@ -56,13 +57,37 @@ struct Args {
     require_complete: bool,
 }
 
+/// Locates a file that ships with the tool: in the working directory, next to
+/// the executable (a release archive), or in `../share/hd-dumper` beside it (a
+/// system package installing `/usr/bin/hd-dumper`). Falls back to the bare
+/// relative path, so a missing file is reported under its usual name.
+fn bundled(name: &str) -> PathBuf {
+    let local = PathBuf::from(name);
+    if local.exists() {
+        return local;
+    }
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf));
+    if let Some(dir) = exe_dir {
+        for candidate in [dir.join(name), dir.join("../share/hd-dumper").join(name)] {
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+    local
+}
+
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let mut args = Args::parse();
+    let spec_path = args.spec.take().unwrap_or_else(|| bundled("client-spec.toml"));
+    let shipped_path = args.shipped.take().unwrap_or_else(|| bundled("shipped"));
     if !args.apk.exists() {
         bail!("input APK does not exist: {}", args.apk.display());
     }
-    let spec = if args.spec.exists() {
-        Some(spec::Spec::load(&args.spec)?)
+    let spec = if spec_path.exists() {
+        Some(spec::Spec::load(&spec_path)?)
     } else {
         None
     };
@@ -95,8 +120,8 @@ fn main() -> Result<()> {
         },
     };
 
-    let shipped = if args.shipped.exists() {
-        Some(native::shipped(&args.shipped)?)
+    let shipped = if shipped_path.exists() {
+        Some(native::shipped(&shipped_path)?)
     } else {
         None
     };
@@ -134,13 +159,13 @@ fn main() -> Result<()> {
         ),
         None => println!(
             "  spec: none ({} does not exist; order-resources.json and starter/layout.json will be skipped)",
-            args.spec.display()
+            spec_path.display()
         ),
     }
     println!(
         "  shipped: {}",
         if plan.shipped.is_empty() {
-            format!("none ({} does not exist)", args.shipped.display())
+            format!("none ({} does not exist)", shipped_path.display())
         } else {
             plan.shipped.join(", ")
         }

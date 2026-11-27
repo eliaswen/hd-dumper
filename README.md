@@ -11,6 +11,13 @@ it at, and the two protocol tables that cannot be (see
 [What ships with the tool](#what-ships-with-the-tool)) are interface facts, not
 content. See the [legal notice](LEGAL.md).
 
+## Install
+
+Each [release](https://github.com/eliaswen/hd-dumper/releases) has archives for
+Linux, macOS and Windows. On Linux you can install from the signed apt or dnf
+repository instead; [eliaswen.github.io/hd-dumper](https://eliaswen.github.io/hd-dumper/)
+has the setup commands.
+
 ## Build
 
 ```sh
@@ -27,10 +34,14 @@ hd-dumper --apk hayday.apk --out resources
 | --- | --- |
 | `--apk` | Input Hay Day APK (1.43.150 build 1598, x86 or arm64-v8a). |
 | `-o, --out` | Output directory, the server's `resources_dir` (default `resources`). |
-| `--spec` | Client facts the APK's data tables do not contain (default `client-spec.toml`; see below). |
-| `--shipped` | Directory holding the two protocol tables that ship with the tool (default `shipped`). |
+| `--spec` | Client facts the APK's data tables do not contain (default: the bundled `client-spec.toml`; see below). |
+| `--shipped` | Directory holding the two protocol tables that ship with the tool (default: the bundled `shipped/`). |
 | `--type-map` | Data-type registry as JSON, for an APK with no x86 or arm64-v8a `libg.so` to scan. |
 | `--require-complete` | Exit non-zero when anything could not be produced. |
+
+The bundled files are looked up in the working directory, then next to the
+executable (release archives), then in `../share/hd-dumper` beside it (system
+packages, which install them to `/usr/share/hd-dumper`).
 
 Then run the server against it:
 

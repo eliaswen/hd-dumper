@@ -13,3 +13,27 @@ sha2 = "0.11.1"
 serde_json = { version = "1", features = ["preserve_order"] }
 toml = "0.8"
 iced-x86 = "1.22"
+
+[package.metadata.deb]
+maintainer = "Elias Wendland <193786789+eliaswen@users.noreply.github.com>"
+copyright = "Elias Wendland"
+section = "utils"
+depends = "$auto"
+# The binary finds these through ../share/hd-dumper (see `bundled` in main.rs).
+assets = [
+    ["target/release/hd-dumper", "usr/bin/", "755"],
+    ["client-spec.toml", "usr/share/hd-dumper/", "644"],
+    ["shipped/*", "usr/share/hd-dumper/shipped/", "644"],
+    ["README.md", "usr/share/doc/hd-dumper/", "644"],
+    ["LEGAL.md", "usr/share/doc/hd-dumper/", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/hd-dumper", dest = "/usr/bin/hd-dumper", mode = "755" },
+    { source = "client-spec.toml", dest = "/usr/share/hd-dumper/client-spec.toml", mode = "644" },
+    { source = "shipped/*", dest = "/usr/share/hd-dumper/shipped/", mode = "644" },
+    { source = "README.md", dest = "/usr/share/doc/hd-dumper/README.md", mode = "644", doc = true },
+    { source = "LEGAL.md", dest = "/usr/share/doc/hd-dumper/LEGAL.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/hd-dumper/LICENSE", mode = "644", doc = true },
+]
