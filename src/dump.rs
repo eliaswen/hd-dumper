@@ -95,7 +95,7 @@ impl Plan {
                 ] {
                     skipped.push((
                         path.to_string(),
-                        "no data types: this APK has no x86 libg.so to scan; pass --type-map"
+                        "no data types: this APK has no x86 or arm64-v8a libg.so to scan; pass --type-map"
                             .to_string(),
                     ));
                 }

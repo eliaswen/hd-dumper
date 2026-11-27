@@ -47,7 +47,7 @@ struct Args {
     shipped: PathBuf,
 
     /// Data-type registry as JSON (`{"16": "animal_feed", ...}`), for APKs with
-    /// no x86 `libg.so` to scan. The numbers are ABI-independent.
+    /// no x86 or arm64-v8a `libg.so` to scan. The numbers are ABI-independent.
     #[arg(long)]
     type_map: Option<PathBuf>,
 
@@ -71,8 +71,8 @@ fn main() -> Result<()> {
     let mut apk = apk::Archive::open(&args.apk)?;
     let inputs = data::Inputs::read(&mut apk)?;
 
-    // The registry is scanned from the x86 library; an APK that ships only
-    // another ABI needs `--type-map` (or an x86 APK of the same build).
+    // The registry is scanned from the x86 library, or the arm64-v8a one when
+    // there is no x86 build; an APK that ships neither needs `--type-map`.
     eprintln!(
         "Parsed {} CSVs ({} data tables) and {} JSON documents",
         inputs.csvs.len(),
@@ -84,10 +84,12 @@ fn main() -> Result<()> {
     }
     let types = match &args.type_map {
         Some(path) => Some(native::TypeMap::load(path)?),
-        None => match x86_library(&mut apk, &inputs)? {
-            Some(libg) => Some(native::TypeMap::scan(&libg).with_context(|| {
-                "the binder scan of lib/x86/libg.so failed; \
-                 pass --type-map to supply the data-type registry instead"
+        None => match scannable_library(&mut apk, &inputs)? {
+            Some((entry, libg)) => Some(native::TypeMap::scan(&libg).with_context(|| {
+                format!(
+                    "the binder scan of {entry} failed; \
+                     pass --type-map to supply the data-type registry instead"
+                )
             })?),
             None => None,
         },
@@ -176,12 +178,21 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// The x86 `libg.so` in this APK, if it has one.
-fn x86_library(archive: &mut apk::Archive, inputs: &data::Inputs) -> Result<Option<Vec<u8>>> {
-    match inputs.libraries.iter().find(|library| library.abi == "x86") {
-        Some(library) => Ok(Some(archive.read(&library.entry)?)),
-        None => Ok(None),
+/// The ABIs the registry scan reads, in the order it prefers them.
+const SCANNED_ABIS: [&str; 2] = ["x86", "arm64-v8a"];
+
+/// The `libg.so` to scan for the registry, with its zip entry: the x86 build
+/// when the APK has one, otherwise the arm64-v8a build.
+fn scannable_library(
+    archive: &mut apk::Archive,
+    inputs: &data::Inputs,
+) -> Result<Option<(String, Vec<u8>)>> {
+    for abi in SCANNED_ABIS {
+        if let Some(library) = inputs.libraries.iter().find(|library| library.abi == abi) {
+            return Ok(Some((library.entry.clone(), archive.read(&library.entry)?)));
+        }
     }
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -204,11 +215,17 @@ mod tests {
         let mut archive = apk::Archive::open(std::path::Path::new(&path)).unwrap();
         let inputs = data::Inputs::read(&mut archive).unwrap();
         let spec = spec::Spec::load(std::path::Path::new("client-spec.toml")).ok();
-        let types = x86_library(&mut archive, &inputs)
+        let (entry, libg) = scannable_library(&mut archive, &inputs)
             .unwrap()
-            .map(|libg| native::TypeMap::scan(&libg).unwrap());
-        // Measured for build 1598: 226 binder calls resolve to 225 tables.
-        assert_eq!(types.as_ref().unwrap().tables.len(), 225);
+            .expect("the APK has no x86 or arm64-v8a libg.so");
+        let types = Some(native::TypeMap::scan(&libg).unwrap());
+        let count = types.as_ref().unwrap().tables.len();
+        if entry == "lib/x86/libg.so" {
+            // Measured for build 1598: 226 binder calls resolve to 225 tables.
+            assert_eq!(count, 225);
+        } else {
+            assert!(count > 200, "{entry}: {count} tables");
+        }
         let sources = dump::Sources {
             inputs: &inputs,
             spec: spec.as_ref(),

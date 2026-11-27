@@ -29,7 +29,7 @@ hd-dumper --apk hayday.apk --out resources
 | `-o, --out` | Output directory, the server's `resources_dir` (default `resources`). |
 | `--spec` | Client facts the APK's data tables do not contain (default `client-spec.toml`; see below). |
 | `--shipped` | Directory holding the two protocol tables that ship with the tool (default `shipped`). |
-| `--type-map` | Data-type registry as JSON, for an APK with no x86 `libg.so` to scan. |
+| `--type-map` | Data-type registry as JSON, for an APK with no x86 or arm64-v8a `libg.so` to scan. |
 | `--require-complete` | Exit non-zero when anything could not be produced. |
 
 Then run the server against it:
@@ -72,13 +72,29 @@ producing a tree that guesses.
 
 The client registers each data table under a type number and a name, and the
 names ship XOR-encrypted in the library. `hd-dumper` recovers the registry with a
-bounded pattern scan of the x86 `libg.so`: it decodes the text segment, collects
-the calls into the registry's binder and the static initialisers beside them,
-and decrypts the names those calls reference. It is a scan, not a decompilation:
-no game logic is interpreted, and the result is rejected unless the binder was
-found, the names decrypt to data-table paths, and the counts add up. For build
-1598 that recovers 225 tables, and the numbers are ABI-independent, so an arm64
-APK can reuse a map produced from an x86 one (`--type-map`).
+bounded pattern scan of `libg.so`: it decodes the text segment, collects the
+calls into the registry's binder and the static initialisers beside them, and
+decrypts the names those calls reference. It is a scan, not a decompilation: no
+game logic is interpreted, and the result is rejected unless the binder was
+found, the names decrypt to data-table paths, and the counts add up.
+
+It reads the x86 library when the APK has one and the arm64-v8a library
+otherwise:
+
+- **x86** starts from build-1598 addresses (the binder, the initialiser and the
+  key) and checks each by shape. For build 1598 it recovers 225 tables.
+- **arm64-v8a** pins nothing to a build. Arguments travel in registers, so the
+  binder is the call target that most often receives a global name slot, a
+  constant type and a zero; the initialiser is the target that most often
+  stores those slots; and the 128-byte key is rebuilt from the `data/` prefix
+  every name shares, then has to occur verbatim in the library before it is
+  used. On the arm64 library tested it recovers 226 tables, one more than the
+  x86 scan. The extra one is probably type 1 (`languages`): its name slot is
+  loaded about 450 instructions before its binder call, further back than the
+  x86 scan's window reaches.
+
+The numbers are ABI-independent, so an APK with neither library can reuse a map
+produced from another (`--type-map`).
 
 ### What the spec holds
 
@@ -124,6 +140,12 @@ the level ladder, and the report for anything skipped):
 
 ```sh
 HD_APK=/path/to/hayday.apk cargo test -- --ignored
+```
+
+The arm64 scan can also be checked against a bare library pulled from a device:
+
+```sh
+HD_LIBG_ARM64=/path/to/arm64/libg.so cargo test -- --ignored scans_a_real_library
 ```
 
 `tools/compare-trees.py <generated> <reference>` checks one tree against another:

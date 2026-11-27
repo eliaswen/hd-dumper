@@ -4,7 +4,8 @@
 //!   number and a name. The names ship XOR-encrypted, so the map is recovered by
 //!   a bounded pattern scan around the registry's binder calls — the approach the
 //!   research used, re-implemented here so the tool does not
-//!   need a disassembly dump to be present.
+//!   need a disassembly dump to be present. The x86 scan starts from build-1598
+//!   addresses; the arm64 one ([`aarch64`]) finds its anchors by shape.
 //! - The two **command** tables describe the wire protocol, not the data, so no
 //!   amount of CSV reading produces them. They ship in [`SHIPPED`], with their
 //!   provenance recorded, and [`shipped`] copies them into an output tree.
@@ -20,6 +21,12 @@ use anyhow::{Context, Result, bail, ensure};
 use iced_x86::{Decoder, DecoderOptions, FlowControl, Mnemonic, OpKind, Register};
 
 use crate::apk::{Archive, sha256_hex};
+
+mod aarch64;
+
+/// ELF `e_machine` values the registry scan reads.
+const EM_386: u16 = 3;
+const EM_AARCH64: u16 = 183;
 
 /// A native game library found in the APK.
 pub struct Library {
@@ -106,9 +113,17 @@ impl TypeMap {
         })
     }
 
-    /// Run the binder scan over an x86 `libg.so`.
+    /// Run the binder scan over an x86 or arm64 `libg.so`.
     pub fn scan(libg: &[u8]) -> Result<Self> {
-        let (tables, evidence) = Scanner::new(libg)?.scan()?;
+        let elf = Elf::new(libg)?;
+        let (tables, evidence) = match elf.machine {
+            EM_386 => Scanner::new(libg)?.scan()?,
+            EM_AARCH64 => aarch64::scan(libg, &elf)?,
+            machine => bail!(
+                "the binder scan reads x86 and arm64 libraries, not ELF machine {machine}; \
+                 supply a type map instead"
+            ),
+        };
         Ok(Self { tables, evidence })
     }
 }
@@ -356,6 +371,8 @@ struct Load {
 /// Just enough ELF to find the text segment and map addresses to file offsets.
 struct Elf<'a> {
     bitness: u32,
+    /// `e_machine`.
+    machine: u16,
     loads: Vec<Load>,
     marker: std::marker::PhantomData<&'a [u8]>,
 }
@@ -414,6 +431,7 @@ impl<'a> Elf<'a> {
         ensure!(!loads.is_empty(), "ELF library has no loadable segments");
         Ok(Self {
             bitness,
+            machine: u16_at(data, 18)?,
             loads,
             marker: std::marker::PhantomData,
         })
