@@ -7,11 +7,11 @@ description = "Extract the runtime resource tables hd-server needs from a Hay Da
 
 [dependencies]
 anyhow = "1.0.95"
-clap = { version = "4.5.23", features = ["derive"] }
+clap = { version = "4.6.10", features = ["derive"] }
 zip = { version = "9.8.2", default-features = false, features = ["deflate"] }
 sha2 = "0.11.1"
 serde_json = { version = "1", features = ["preserve_order"] }
-toml = "0.8"
+toml = "1.2.3"
 iced-x86 = "1.22"
 
 [package.metadata.deb]
